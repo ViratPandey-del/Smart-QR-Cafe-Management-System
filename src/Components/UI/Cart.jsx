@@ -4,12 +4,16 @@ import { useCart } from "./CartContext";
 export const Cart = () => {
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState(null);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     cartItems,
     increaseQuantity,
     decreaseQuantity,
     removeFromCart,
+    clearCart,
   } = useCart();
 
   const totalPrice = cartItems.reduce(
@@ -41,16 +45,19 @@ export const Cart = () => {
     const orderData = {
       customerName: user.name,
       email: user.email,
-      tableNo: cartItems[0]?.tableNo || "5",
+      tableNo: cartItems[0]?.tableNo || "Online Order",
       items: cartItems.map((item) => ({
         name: item.name,
         price: parseInt(item.price.replace("₹", "")),
         quantity: item.quantity,
       })),
       totalAmount: totalPrice,
+      paymentMethod,
     };
 
     try {
+      setIsLoading(true);
+
       const res = await fetch("http://localhost:5000/api/orders/place-order", {
         method: "POST",
         headers: {
@@ -63,33 +70,59 @@ export const Cart = () => {
       const data = await res.json();
 
       if (res.ok) {
-        const order = {
-          id: Date.now(),
-          tableNo: cartItems[0]?.tableNo || "Unknown",
-          items: cartItems,
-          totalPrice,
-          paymentMethod,
-          status: "Pending",
-          orderTime: new Date().toLocaleString(),
-        };
-
-        const oldOrders = JSON.parse(localStorage.getItem("orders")) || [];
-        oldOrders.push(order);
-        localStorage.setItem("orders", JSON.stringify(oldOrders));
-
-        alert("Order placed successfully. Invoice sent to your email.");
-        window.location.reload();
+        setCreatedOrderId(data.order._id);
+        setOrderPlaced(true);
+        alert("Order placed successfully. Bill sent to your email.");
       } else {
-        alert(data.message);
+        alert(data.message || "Order failed");
       }
     } catch (err) {
       console.log(err);
       alert("Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (!createdOrderId) {
+      alert("Please place order first");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const res = await fetch(
+        `http://localhost:5000/api/orders/pay/${createdOrderId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert("Payment successful. Confirmation email sent.");
+        clearCart();
+        setCreatedOrderId(null);
+        setOrderPlaced(false);
+      } else {
+        alert(data.message || "Payment failed");
+      }
+    } catch (err) {
+      console.log(err);
+      alert("Something went wrong");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-[#FFF8F2] min-h-screen py-10">
+    <div className="bg-[#FFFFF2] min-h-screen py-10">
       {showLoginPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-2xl shadow-xl text-center w-[90%] max-w-md">
@@ -203,43 +236,58 @@ export const Cart = () => {
                 <span>₹{totalPrice}</span>
               </div>
 
+              {orderPlaced && (
+                <div className="mt-6 bg-green-100 border border-green-400 text-green-800 p-4 rounded-xl">
+                  <h3 className="font-bold text-lg">Order Placed</h3>
+                  <p>Bill has been sent to your email.</p>
+                  <p>Payment Status: Pending</p>
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-5 mt-8">
                 <button
                   onClick={handleOrder}
-                  className="bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-xl text-lg font-bold"
+                  disabled={isLoading || orderPlaced}
+                  className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white py-4 rounded-xl text-lg font-bold"
                 >
-                  Order Now
+                  {isLoading ? "Processing..." : "Order Now"}
                 </button>
 
-                <button className="bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl text-lg font-bold">
-                  Pay Now
-                </button>
+                {orderPlaced && (
+                  <button
+                    onClick={handlePayNow}
+                    disabled={isLoading}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-4 rounded-xl text-lg font-bold"
+                  >
+                    {isLoading ? "Processing..." : "Pay Now"}
+                  </button>
+                )}
               </div>
-            </div>
 
-            <div className="mt-6">
-              <h3 className="text-xl font-bold mb-3">Payment Method</h3>
+              <div className="mt-6">
+                <h3 className="text-xl font-bold mb-3">Payment Method</h3>
 
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="Cash"
-                    checked={paymentMethod === "Cash"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  Cash
-                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      value="Cash"
+                      checked={paymentMethod === "Cash"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    />
+                    Cash
+                  </label>
 
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="Online"
-                    checked={paymentMethod === "Online"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  Online
-                </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      value="Online"
+                      checked={paymentMethod === "Online"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    />
+                    Online
+                  </label>
+                </div>
               </div>
             </div>
           </>

@@ -11,31 +11,49 @@ export const CartProvider = ({ children }) => {
     if (exist) {
       setCartItems(
         cartItems.map((x) =>
-          x.id === item.id
-            ? { ...x, quantity: x.quantity + 1 }
-            : x
+          x.id === item.id ? { ...x, quantity: x.quantity + 1 } : x
         )
       );
     } else {
-      setCartItems([
-        ...cartItems,
-        { ...item, quantity: 1 }
-      ]);
+      setCartItems([...cartItems, { ...item, quantity: 1 }]);
     }
   };
 
+  const increaseQuantity = (id) => {
+    setCartItems(
+      cartItems.map((item) =>
+        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+      )
+    );
+  };
+
+  const decreaseQuantity = (id) => {
+    setCartItems(
+      cartItems
+        .map((item) =>
+          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
   const removeFromCart = (id) => {
-  setCartItems((prev) =>
-    prev.filter((item) => item.id !== id)
-  );
-};
+    setCartItems(cartItems.filter((item) => item.id !== id));
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+  };
 
   return (
     <CartContext.Provider
       value={{
         cartItems,
         addToCart,
-        removeFromCart
+        increaseQuantity,
+        decreaseQuantity,
+        removeFromCart,
+        clearCart,
       }}
     >
       {children}
