@@ -65,6 +65,18 @@ The system also provides an **Admin Dashboard** to manage menu items, monitor or
 
 ---
 
+## 🛒 Improved Cart & Payment Flow
+
+- Login required before placing orders
+- Dynamic quantity management
+- Remove items from cart
+- Order summary with total amount
+- Payment method selection (Cash / Online)
+- Order remains in cart until payment is completed
+- Pending payment status after placing an order
+- Pay Now functionality
+- Cart clears only after successful payment
+
 ## 📂 Project Structure
 
 ```
